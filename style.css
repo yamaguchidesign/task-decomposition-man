@@ -38,8 +38,9 @@ h1 {
 }
 
 /* 階層ごとのインデント */
-#taskList ul, #taskList ol {
-    list-style-type: none; /* ネストされたリストもマーカーなし */
+#taskList ul,
+#taskList ol {
+    list-style-type: none;
     padding-left: 30px;
     margin-top: 4px;
     margin-bottom: 4px;
@@ -49,13 +50,13 @@ h1 {
     padding: 2px 0;
     margin-bottom: 2px;
     position: relative;
-    padding-left: 1.5em; /* バレット用のスペース */
+    padding-left: 1.5em;
 }
 
-/* バレット（黒丸）のデザイン - 直下のliのみに適用 */
-#taskList > li::before,
-#taskList ul > li::before,
-#taskList ol > li::before {
+/* バレット（黒丸）のデザイン */
+#taskList>li::before,
+#taskList ul>li::before,
+#taskList ol>li::before {
     content: "•";
     color: #999;
     position: absolute;
@@ -68,7 +69,7 @@ h1 {
 
 /* 子要素がある（ボタンがある）場合はバレットを隠す */
 #taskList li.has-children::before {
-    display: none !important; /* 強制的に消す */
+    display: none !important;
 }
 
 /* トグルボタン */
@@ -87,7 +88,7 @@ h1 {
     z-index: 10;
     border-radius: 2px;
     transition: transform 0.2s;
-    background-color: transparent; /* 背景透明に */
+    background-color: transparent;
 }
 
 .toggle-btn:hover {
@@ -96,24 +97,67 @@ h1 {
 }
 
 /* 折りたたまれた状態 */
-li.collapsed > ul, li.collapsed > ol {
+li.collapsed>ul,
+li.collapsed>ol {
     display: none;
 }
 
-/* 折りたたまれた時のボタンの見た目 */
-li.collapsed > .toggle-btn {
+li.collapsed>.toggle-btn {
     transform: rotate(-90deg);
 }
 
 /* ネストレベルに応じたバレットの変化 */
-#taskList > li > ul > li::before {
+#taskList>li>ul>li::before {
     content: "◦";
 }
-#taskList > li > ul > li > ul > li::before {
+
+#taskList>li>ul>li>ul>li::before {
     content: "▪";
 }
 
 ::selection {
     background: #b3d4fc;
     color: black;
+}
+
+/* ホバー時の円形プログレスバー */
+.hover-progress {
+    position: fixed;
+    width: 20px;
+    height: 20px;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    /* マウス中心に配置 */
+}
+
+.hover-progress svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+    /* 12時の位置から開始 */
+}
+
+.hover-progress circle {
+    fill: none;
+    stroke-width: 3;
+    stroke-linecap: round;
+}
+
+.hover-progress .bg {
+    stroke: rgba(0, 0, 0, 0.1);
+}
+
+.hover-progress .progress {
+    stroke: #3498db;
+    stroke-dasharray: 56.5;
+    /* 2 * PI * r (r=9) ≈ 56.5 */
+    stroke-dashoffset: 56.5;
+    animation: progress 1s linear forwards;
+}
+
+@keyframes progress {
+    to {
+        stroke-dashoffset: 0;
+    }
 }
