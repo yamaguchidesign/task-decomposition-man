@@ -2,24 +2,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const taskList = document.getElementById('taskList');
     const container = document.querySelector('.container');
 
-    // データ読み込み
     loadTasks();
 
-    // ロード後に少し遅らせてボタン状態を更新（DOMのレンダリング待ち）
     setTimeout(() => {
         normalizeList(taskList);
         updateToggleButtons();
     }, 0);
 
-    // コンテナの空きスペースをクリックしたらリストにフォーカス
     container.addEventListener('click', (e) => {
         if (e.target === container) {
             if (taskList.children.length === 0) {
                 createInitialRow();
             }
             taskList.focus();
-
-            // カーソルを末尾へ
             const range = document.createRange();
             range.selectNodeContents(taskList);
             range.collapse(false);
@@ -30,7 +25,70 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ----------------------------------------------------
-    // イベント処理
+    // ホバーアクションとプログレスバー
+    // ----------------------------------------------------
+    let hoverTimer = null;
+    let progressElement = null;
+
+    taskList.addEventListener('mouseover', (e) => {
+        if (e.target.classList.contains('toggle-btn')) {
+            clearHoverState();
+
+            // プログレスバー作成
+            progressElement = createProgressElement(e.clientX, e.clientY);
+            document.body.appendChild(progressElement);
+
+            hoverTimer = setTimeout(() => {
+                const li = e.target.closest('li');
+                li.classList.toggle('collapsed');
+                saveTasks();
+                clearHoverState(); // 完了したら消す
+            }, 1000);
+        }
+    });
+
+    taskList.addEventListener('mousemove', (e) => {
+        if (progressElement && hoverTimer) {
+            // マウスに追従
+            progressElement.style.left = e.clientX + 'px';
+            progressElement.style.top = e.clientY + 'px';
+        }
+    });
+
+    taskList.addEventListener('mouseout', (e) => {
+        if (e.target.classList.contains('toggle-btn')) {
+            clearHoverState();
+        }
+    });
+
+    function createProgressElement(x, y) {
+        const div = document.createElement('div');
+        div.className = 'hover-progress';
+        div.style.left = x + 'px';
+        div.style.top = y + 'px';
+        // SVGで円グラフを描画
+        div.innerHTML = `
+            <svg viewBox="0 0 24 24">
+                <circle class="bg" cx="12" cy="12" r="9"></circle>
+                <circle class="progress" cx="12" cy="12" r="9"></circle>
+            </svg>
+        `;
+        return div;
+    }
+
+    function clearHoverState() {
+        if (hoverTimer) {
+            clearTimeout(hoverTimer);
+            hoverTimer = null;
+        }
+        if (progressElement) {
+            progressElement.remove();
+            progressElement = null;
+        }
+    }
+
+    // ----------------------------------------------------
+    // その他イベント処理
     // ----------------------------------------------------
 
     taskList.addEventListener('click', (e) => {
@@ -40,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const li = e.target.closest('li');
             li.classList.toggle('collapsed');
             saveTasks();
+            clearHoverState(); // クリックしたらホバーキャンセル
         }
     });
 
@@ -47,8 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (taskList.innerHTML.trim() === '' || taskList.innerHTML === '<br>') {
             createInitialRow();
         }
-
-        // 構造がおかしくなっていたら直してからボタン更新
         normalizeList(taskList);
         updateToggleButtons();
         saveTasks();
@@ -60,101 +117,108 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Tab') {
             e.preventDefault();
             if (e.shiftKey) {
-                document.execCommand('outdent');
+                customOutdent();
             } else {
-                document.execCommand('indent');
+                customIndent();
             }
-
+            // 操作後に状態更新
             setTimeout(() => {
                 normalizeList(taskList);
                 updateToggleButtons();
                 saveTasks();
             }, 0);
         }
-        else if (e.key === 'Backspace') {
-            // 行頭（キャレット位置0）でのBackspaceで、インデントを戻す（Outdent）
-            const sel = window.getSelection();
-            if (sel.rangeCount > 0) {
-                const range = sel.getRangeAt(0);
+    });
 
-                // 選択範囲が折り畳まれている（カーソル状態）か確認
-                if (range.collapsed) {
-                    // カーソルが要素の先頭にあるか判定
-                    // startOffsetが0でも、テキストノードの途中である可能性があるため、
-                    // コンテナ（li）の先頭かどうかをチェック
+    // ----------------------------------------------------
+    // インデント・アウトデント実装 (execCommand非使用)
+    // ----------------------------------------------------
+    function getSelectionLi() {
+        const sel = window.getSelection();
+        if (sel.rangeCount === 0) return null;
+        let node = sel.getRangeAt(0).startContainer;
+        if (node.nodeType === 3) node = node.parentNode;
+        return node.closest('li');
+    }
 
-                    // 最も近いliを取得
-                    let li = range.startContainer;
-                    if (li.nodeType === 3) li = li.parentNode; // テキストノードなら親へ
-                    li = li.closest('li');
+    function customIndent() {
+        const li = getSelectionLi();
+        if (!li) return;
 
-                    if (li) {
-                        // カーソルが本当にliの先頭（テキストの0文字目）にあるか
-                        // Rangeを使って、liの先頭から現在のカーソル位置までのテキストを取得し、長さが0なら先頭とみなす
-                        const preCaretRange = range.cloneRange();
-                        preCaretRange.selectNodeContents(li);
-                        preCaretRange.setEnd(range.endContainer, range.endOffset);
+        const prevLi = li.previousElementSibling;
+        if (prevLi && prevLi.tagName === 'LI') {
+            // 直前のLIの中に移動
+            let childUl = prevLi.querySelector('ul, ol');
+            if (!childUl) {
+                childUl = document.createElement('ul');
+                prevLi.appendChild(childUl);
+            }
+            childUl.appendChild(li);
+            // フォーカス維持
+            restoreFocus(li);
+        }
+    }
 
-                        // テキストコンテンツを取得して、前にあるのがトグルボタンや空白文字だけなら「先頭」とみなす
-                        // ただしトグルボタンは contentEditable=false なので range に含まれるか挙動がブラウザによる。
-                        // テキストとして空文字列であれば先頭と判断して良い。
-                        const textBefore = preCaretRange.toString();
+    function customOutdent() {
+        const li = getSelectionLi();
+        if (!li) return;
 
-                        // ▼ボタンのテキスト("▼")が含まれる可能性があるので除去
-                        const cleanText = textBefore.replace('▼', '');
-
-                        if (cleanText.length === 0) {
-                            // インデントされているか確認（親がul/olであり、その親もliであること）
-                            const parentList = li.parentNode;
-                            if ((parentList.tagName === 'UL' || parentList.tagName === 'OL') &&
-                                parentList.id !== 'taskList') {
-
-                                e.preventDefault();
-                                document.execCommand('outdent');
-
-                                setTimeout(() => {
-                                    normalizeList(taskList);
-                                    updateToggleButtons();
-                                    saveTasks();
-                                }, 0);
-                            }
-                        }
-                    }
+        const parentUl = li.parentNode;
+        // ルートのtaskListでなければ実行
+        if (parentUl && parentUl.tagName === 'UL' && parentUl.id !== 'taskList') {
+            const parentLi = parentUl.closest('li');
+            if (parentLi) {
+                // 親LIの次の位置に移動（アウトデント）
+                if (parentLi.nextSibling) {
+                    parentLi.parentNode.insertBefore(li, parentLi.nextSibling);
+                } else {
+                    parentLi.parentNode.appendChild(li);
                 }
+
+                // 元の親ULが空になったら削除
+                if (parentUl.children.length === 0) {
+                    parentUl.remove();
+                }
+
+                restoreFocus(li);
             }
         }
-    });
+    }
+
+    function restoreFocus(element) {
+        // 要素内の適切な位置にカーソルを戻す（簡易実装：末尾）
+        // ※本来は元のカーソル位置を保持して復元すべきだが、移動で構造が変わるため難しい
+        // contenteditable要素内のフォーカス
+        const range = document.createRange();
+        const sel = window.getSelection();
+
+        // テキストノードがあればその末尾、なければ要素の末尾
+        // シンプルに要素を選択状態にしてcollapseする
+        range.selectNodeContents(element);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        element.focus();
+    }
 
     // ----------------------------------------------------
     // ヘルパー関数
     // ----------------------------------------------------
 
-    // 不正なHTML構造（ulの直下にulがある状態）を修正する
     function normalizeList(rootUl) {
-        // すべてのul/ol配下をチェック
-        // ※ルートだけでなく再帰的あるいは全探索が必要だが、
-        // 編集操作は局所的なので、まずはルートから順に探索
         const lists = rootUl.querySelectorAll('ul, ol');
-        // 自分自身も含める（ルートがulなので）
         const allLists = [rootUl, ...lists];
 
         allLists.forEach(list => {
-            // 子要素を配列化してループ（操作中にcollectionが変わるのを防ぐ）
             const children = Array.from(list.children);
             let lastLi = null;
 
             children.forEach(child => {
                 if (child.tagName === 'LI') {
                     lastLi = child;
-                    // 再帰的にこのLIの中もチェックしたほうが安全だが、
-                    // querySelectorAllで取れているのでループで回ってくるはず
                 } else if ((child.tagName === 'UL' || child.tagName === 'OL') && lastLi) {
-                    // 直前のLIがある場合、その中に移動させる
                     lastLi.appendChild(child);
                 } else if ((child.tagName === 'UL' || child.tagName === 'OL') && !lastLi) {
-                    // 直前にLIがない場合（リストの先頭がいきなりULなど）、
-                    // 空のLIを作って入れるか、どうするか。
-                    // とりあえず空のLIに入れてあげる
                     const newLi = document.createElement('li');
                     list.insertBefore(newLi, child);
                     newLi.appendChild(child);
@@ -165,19 +229,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateToggleButtons() {
-        // 全てのLIを走査
         const lis = taskList.querySelectorAll('li');
         lis.forEach(li => {
             let hasChildList = false;
-            // 直接の子要素を確認
             for (let i = 0; i < li.children.length; i++) {
                 const child = li.children[i];
                 if (child.tagName === 'UL' || child.tagName === 'OL') {
-                    // 中身が空でないか確認（空のulが残ることがあるため）
                     if (child.children.length > 0) {
                         hasChildList = true;
                     } else {
-                        // 空のリストなら削除してしまう（クリーニング）
                         child.remove();
                     }
                 }
@@ -204,9 +264,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ----------------------------------------------------
-    // データ保存・読み込み処理
-    // ----------------------------------------------------
     function saveTasks() {
         localStorage.setItem('myTasksHTML', taskList.innerHTML);
     }
@@ -215,7 +272,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const html = localStorage.getItem('myTasksHTML');
         if (html) {
             taskList.innerHTML = html;
-            // ロード直後にも正規化を実行
             setTimeout(() => {
                 normalizeList(taskList);
                 updateToggleButtons();
