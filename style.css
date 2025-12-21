@@ -1,62 +1,395 @@
+/* ... (既存スタイル) ... */
+
+/* カレンダー内のタスク表示 */
+.calendar-task {
+    background-color: #3498db;
+    color: white;
+    font-size: 0.75rem;
+    padding: 2px 4px;
+    border-radius: 3px;
+    margin-top: 2px;
+    width: calc(100% - 8px);
+    box-sizing: border-box;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    margin-left: auto;
+    margin-right: auto;
+    transition: background-color 0.2s;
+}
+
+.calendar-task:hover {
+    filter: brightness(0.9);
+}
+
+/* ... (tooltip, deadline-text, calendar-sidebar等 変更なし) ... */
+.task-tooltip {
+    position: fixed;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 10000;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    top: 0;
+    left: 0;
+}
+
+.deadline-text {
+    color: #9b59b6;
+    font-weight: bold;
+}
+
+#calendar-sidebar {
+    width: 600px;
+    min-width: 400px;
+    height: 100%;
+    background: white;
+    border-left: 1px solid #e0e0e0;
+    overflow-y: auto;
+    padding: 0;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease, min-width 0.3s ease, opacity 0.3s ease;
+    opacity: 1;
+}
+
+#calendar-sidebar.hidden {
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+    border-left: none;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.calendar-toggle-btn {
+    position: fixed;
+    top: 0;
+    right: 600px;
+    width: 30px;
+    height: 50px;
+    background-color: #d0d0d0;
+    border-radius: 8px 0 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #555;
+    z-index: 2000;
+    transition: right 0.3s ease, background-color 0.2s;
+    box-shadow: -1px 1px 3px rgba(0, 0, 0, 0.1);
+    user-select: none;
+}
+
+.calendar-toggle-btn:hover {
+    background-color: #c0c0c0;
+}
+
+.calendar-toggle-btn.closed {
+    right: 0;
+}
+
+.calendar-grid-seamless {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 1px;
+    background: #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+    min-width: 400px;
+}
+
+.calendar-header-row {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    background: #f9f9f9;
+    border-bottom: 1px solid #e0e0e0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    min-width: 400px;
+}
+
+.weekday-header {
+    padding: 10px 0;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+    color: #666;
+    background: #f9f9f9;
+}
+
+.calendar-cell {
+    background: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 8px 0;
+    font-size: 0.9rem;
+    min-height: 120px;
+    position: relative;
+    overflow: hidden;
+}
+
+.calendar-cell .date-number,
+.calendar-cell .holiday-name {
+    padding: 0 4px;
+}
+
+.date-number {
+    font-weight: 500;
+}
+
+.month-label {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #2c3e50;
+    background: #ecf0f1;
+    padding: 2px 6px;
+    border-radius: 4px;
+    z-index: 2;
+}
+
+.calendar-cell.saturday {
+    background-color: #fafdff;
+    color: #3498db;
+}
+
+.calendar-cell.sunday,
+.calendar-cell.holiday {
+    background-color: #fffafa;
+    color: #e74c3c;
+}
+
+.holiday-name {
+    font-size: 0.7rem;
+    color: #e74c3c;
+    margin-top: 2px;
+    text-align: center;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.calendar-cell.today {
+    background-color: #e3f2fd;
+}
+
+.calendar-cell.today .date-number {
+    color: #1976d2;
+    font-weight: bold;
+}
+
+.calendar-cell.past-day {
+    background-color: #eeeeee;
+    color: #999;
+}
+
+.calendar-cell.past-day.saturday,
+.calendar-cell.past-day.sunday,
+.calendar-cell.past-day.holiday {
+    background-color: #eeeeee;
+    color: #bbb;
+}
+
+.calendar-cell.empty {
+    background: white;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: #f5f5f5;
     color: #333;
-    display: flex;
-    justify-content: center;
-    padding-top: 50px;
     margin: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: flex-start;
+    overflow: hidden;
 }
 
-.container {
+#main-area {
+    flex: 1;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+#board {
+    display: grid;
+    grid-template-columns: repeat(2, 400px);
+    grid-auto-rows: min-content;
+    align-content: start;
+    justify-content: center;
+    padding: 2rem;
+    gap: 2rem;
+    height: auto;
+    width: auto;
+    margin: 0 auto;
+}
+
+.project-card {
     background: white;
-    width: 100%;
-    max-width: 600px;
+    width: 400px;
+    min-width: 400px;
     padding: 2rem;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    min-height: 400px;
-    cursor: text;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    --project-color: #3498db;
+    box-sizing: border-box;
 }
 
-h1 {
+.color-picker-btn {
+    position: absolute;
+    top: 10px;
+    right: 50px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 0 0 1px #ddd;
+    background-color: var(--project-color);
+    transition: transform 0.2s, opacity 0.2s;
+    opacity: 0;
+}
+
+.project-card:hover .color-picker-btn {
+    opacity: 1;
+}
+
+.color-picker-btn:hover {
+    transform: scale(1.1);
+}
+
+.color-palette-popup {
+    position: absolute;
+    top: 40px;
+    right: 10px;
+    background: white;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    z-index: 100;
+}
+
+.color-option {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.1s;
+}
+
+.color-option:hover {
+    transform: scale(1.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.color-option.selected {
+    border-color: #333;
+}
+
+.add-project-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: #3498db;
+    color: white;
+    font-size: 20px;
+    line-height: 30px;
+    text-align: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    user-select: none;
+}
+
+.project-card:hover .add-project-btn {
+    opacity: 1;
+}
+
+.add-project-btn:hover {
+    transform: scale(1.1);
+    background-color: #2980b9;
+}
+
+.project-title {
     text-align: center;
     margin-bottom: 1.5rem;
     font-size: 1.5rem;
     color: #2c3e50;
-    cursor: default;
-    user-select: none;
+    font-weight: bold;
+    outline: none;
+    border-bottom: 2px solid transparent;
+    transition: border-bottom-color 0.2s;
 }
 
-/* 編集可能なリスト全体のスタイル */
-#taskList {
+.project-card:hover .project-title,
+.project-title:focus {
+    border-bottom-color: #e0e0e0;
+}
+
+.taskList {
     list-style-type: none;
     padding-left: 0;
     margin: 0;
     outline: none;
     min-height: 50px;
+    overflow-y: auto;
+    flex: 1;
 }
 
-/* 階層ごとのインデント */
-#taskList ul,
-#taskList ol {
+.taskList ul,
+.taskList ol {
     list-style-type: none;
-    padding-left: 30px;
+    padding-left: 15px;
     margin-top: 4px;
     margin-bottom: 4px;
 }
 
-#taskList li {
+.taskList li {
     padding: 2px 0;
     margin-bottom: 2px;
     position: relative;
     padding-left: 1.5em;
 }
 
-/* バレット（黒丸）のデザイン */
-#taskList>li::before,
-#taskList ul>li::before,
-#taskList ol>li::before {
+.taskList>li::before,
+.taskList ul>li::before,
+.taskList ol>li::before {
     content: "•";
     color: #999;
     position: absolute;
@@ -67,12 +400,10 @@ h1 {
     pointer-events: none;
 }
 
-/* 子要素がある（ボタンがある）場合はバレットを隠す */
-#taskList li.has-children::before {
+.taskList li.has-children::before {
     display: none !important;
 }
 
-/* トグルボタン */
 .toggle-btn {
     position: absolute;
     left: 0;
@@ -96,7 +427,6 @@ h1 {
     color: #333;
 }
 
-/* 折りたたまれた状態 */
 li.collapsed>ul,
 li.collapsed>ol {
     display: none;
@@ -106,12 +436,26 @@ li.collapsed>.toggle-btn {
     transform: rotate(-90deg);
 }
 
-/* ネストレベルに応じたバレットの変化 */
-#taskList>li>ul>li::before {
+/* 畳まれた時の子タスクプレビュー */
+.child-preview {
+    color: #999;
+    font-size: 0.8em;
+    margin-left: 8px;
+    /* 少し詰める */
+    pointer-events: none;
+    display: inline-block;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.taskList>li>ul>li::before {
     content: "◦";
 }
 
-#taskList>li>ul>li>ul>li::before {
+.taskList>li>ul>li>ul>li::before {
     content: "▪";
 }
 
@@ -120,7 +464,7 @@ li.collapsed>.toggle-btn {
     color: black;
 }
 
-/* ホバー時の円形プログレスバー */
+/* ... (hover-progress, progress-keyframes 等) ... */
 .hover-progress {
     position: fixed;
     width: 20px;
@@ -128,14 +472,12 @@ li.collapsed>.toggle-btn {
     pointer-events: none;
     z-index: 9999;
     transform: translate(-50%, -50%);
-    /* マウス中心に配置 */
 }
 
 .hover-progress svg {
     width: 100%;
     height: 100%;
     transform: rotate(-90deg);
-    /* 12時の位置から開始 */
 }
 
 .hover-progress circle {
@@ -151,9 +493,8 @@ li.collapsed>.toggle-btn {
 .hover-progress .progress {
     stroke: #3498db;
     stroke-dasharray: 56.5;
-    /* 2 * PI * r (r=9) ≈ 56.5 */
     stroke-dashoffset: 56.5;
-    animation: progress 1s linear forwards;
+    animation: progress 0.5s linear forwards;
 }
 
 @keyframes progress {
