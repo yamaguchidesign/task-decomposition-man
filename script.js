@@ -245,6 +245,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const match = text.match(regex);
                 if (match) {
                     let title = text.replace(regex, '');
+                    
+                    // 完了タスク判定
+                    let isTaskCompleted = false;
+                    if (title.startsWith('✅') || title.startsWith('✅ ')) {
+                        isTaskCompleted = true;
+                        // カレンダー表示用にチェックマークは残す？ -> "カレンダー上もチェックマークがつく"
+                        // そのままtitleを使う
+                    }
 
                     // --- Case 1: Range (12/26-12/31) ---
                     if (match[3] && match[4] && match[5] && match[6]) {
@@ -301,6 +309,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 taskDiv.dataset.fullText = title;
                                 taskDiv.style.backgroundColor = projectColor;
 
+                                if (isTaskCompleted) {
+                                    taskDiv.classList.add('completed');
+                                }
+
                                 // クラス付与（見た目の調整）
                                 if (isStartDay && loopDate.getTime() !== eDate.getTime()) {
                                     taskDiv.classList.add('range-start');
@@ -341,6 +353,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             taskDiv.textContent = title;
                             taskDiv.dataset.fullText = title;
                             taskDiv.style.backgroundColor = projectColor;
+                            if (isTaskCompleted) {
+                                taskDiv.classList.add('completed');
+                            }
                             targetCell.appendChild(taskDiv);
                         }
                     }
@@ -647,6 +662,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // 完了状態トグル (Cmd+Shift+X)
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'x') {
+            e.preventDefault();
+            const list = e.target.closest('.taskList');
+            if (list) {
+                toggleTaskCompletion(list);
+            }
+            return;
+        }
+
         const list = e.target.closest('.taskList');
         if (!list) return;
 
@@ -768,6 +793,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ... (helper functions: getSelectedListItems, customIndent, customOutdent, saveSelectionState, restoreSelectionState, restoreFocus, normalizeList, updateToggleButtons) ...
     // これらは変更なし
+
+    function toggleTaskCompletion(rootList) {
+        const targetLis = getSelectedListItems(rootList);
+        if (targetLis.length === 0) return;
+        
+        saveHistory();
+        const selectionSnapshot = saveSelectionState(targetLis);
+
+        targetLis.forEach(li => {
+            // テキストノードを探す
+            let textNode = null;
+            for (let i = 0; i < li.childNodes.length; i++) {
+                const node = li.childNodes[i];
+                if (node.nodeType === 3) { // Text node
+                    textNode = node;
+                    break;
+                }
+            }
+
+            if (textNode) {
+                let text = textNode.textContent;
+                // 先頭の "✅ " をチェック
+                // 注意: トグルボタンなどがある場合、テキストの先頭が期待通りか確認必要だが、
+                // テキストノードの先頭を見るのでボタン(span)は影響しないはず。
+                
+                // 既存の "✅ " を削除するか追加するか
+                // 空白文字の扱いなども考慮
+                if (text.startsWith('✅ ')) {
+                    textNode.textContent = text.substring(2); // "✅ " を削除
+                } else if (text.startsWith('✅')) {
+                    textNode.textContent = text.substring(1); // "✅" を削除（スペースなしの場合）
+                } else {
+                    textNode.textContent = '✅ ' + text;
+                }
+            } else {
+                // テキストノードがない場合（空のliなど）、新しく追加
+                // ただしボタンの後ろに追加したい
+                let refNode = null;
+                if (li.firstChild && li.firstChild.classList && li.firstChild.classList.contains('toggle-btn')) {
+                    refNode = li.firstChild.nextSibling;
+                } else {
+                    refNode = li.firstChild;
+                }
+                const newText = document.createTextNode('✅ ');
+                li.insertBefore(newText, refNode);
+            }
+        });
+
+        // スタイル更新
+        updateToggleButtons(rootList);
+        saveProjects();
+        restoreSelectionState(selectionSnapshot);
+    }
 
     function getSelectedListItems(rootList) {
         const sel = window.getSelection();
@@ -963,7 +1041,30 @@ document.addEventListener('DOMContentLoaded', () => {
             li.childNodes.forEach(node => {
                 if (node.nodeType === 3) text += node.textContent;
             });
+            // トグルボタンを除去した純粋なテキスト
+            // 先頭の '▼' はボタンのテキストではなくCSSで付与されていない？
+            // 既存コードでは textContent に '▼' が含まれる前提の処理があるが、
+            // toggle-btnのtextContentは'▼'なので、childNodes走査で除外すべきだが
+            // textContentで取得しているので含まれる可能性がある。
+            
+            // childNodesのループで textNodeのみ連結しているので、要素(span.toggle-btn)のテキストは含まれないはず。
+            // しかし、既存コード: text = text.trim().replace(/^▼/, '').trim();
+            // これは念の為の処理か、あるいは以前の実装の名残か。
+            
+            let rawText = text;
             text = text.trim().replace(/^▼/, '').trim();
+
+            // 完了状態チェック (✅)
+            let isCompleted = false;
+            if (text.startsWith('✅') || text.startsWith('✅ ')) {
+                isCompleted = true;
+            }
+
+            if (isCompleted) {
+                li.classList.add('completed');
+            } else {
+                li.classList.remove('completed');
+            }
 
             let isToday = false;
             const regexDate = /\s-((\d{1,2})\/(\d{1,2})|today)$/i;

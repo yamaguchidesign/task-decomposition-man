@@ -25,6 +25,18 @@
     z-index: 1;
 }
 
+/* 完了タスクスタイル */
+.taskList li.completed {
+    text-decoration: line-through;
+    color: rgba(0, 0, 0, 0.4);
+}
+
+/* カレンダー内の完了タスク */
+.calendar-task.completed {
+    opacity: 0.6;
+    text-decoration: line-through;
+}
+
 .calendar-task:hover {
     filter: brightness(0.9);
     z-index: 5;
