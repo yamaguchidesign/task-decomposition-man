@@ -65,6 +65,51 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(renderCalendarEvents, 500);
 
     // ----------------------------------------------------
+    // トリプルクリックで行全体を選択 (for contenteditable)
+    // ----------------------------------------------------
+    board.addEventListener('click', (e) => {
+        if (e.detail === 3) { // トリプルクリック
+            const target = e.target;
+            // li内のテキストをクリックした場合
+            const li = target.closest('li');
+            if (li && target.closest('.taskList')) {
+                // テキストノードのみを対象にするのが難しいので、
+                // li全体を選択範囲にする（ただしボタンなどは除く必要があるが、
+                // contenteditable="false"かつuser-select:noneなら選択に含まれないことが多い）
+
+                // toggle-btnやchild-previewを除外して選択するのはRange操作が複雑になるため、
+                // 単純にliの中身全体を選択させてみる。
+                // contenteditable="false" user-select="none" の要素はブラウザによってはスキップされる。
+
+                const range = document.createRange();
+
+                // 子要素（ulなど）を含まないテキスト部分だけを選択したい場合
+                // liの最初の子から、最初の子リスト(ul/ol)の前までを選択する
+
+                let endNode = null;
+                for (let i = 0; i < li.childNodes.length; i++) {
+                    const node = li.childNodes[i];
+                    if (node.tagName === 'UL' || node.tagName === 'OL') {
+                        endNode = node;
+                        break;
+                    }
+                }
+
+                if (endNode) {
+                    range.setStart(li, 0);
+                    range.setEndBefore(endNode);
+                } else {
+                    range.selectNodeContents(li);
+                }
+
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        }
+    });
+
+    // ----------------------------------------------------
     // カレンダー機能
     // ----------------------------------------------------
     let taskTooltip = null;
@@ -202,48 +247,128 @@ document.addEventListener('DOMContentLoaded', () => {
         // 現在のDOMから抽出
         const cards = document.querySelectorAll('.project-card');
         const currentYear = new Date().getFullYear();
-        const regex = /\s-(\d{1,2})\/(\d{1,2})$/; // " -12/24" 形式
+        // Regex for:
+        // 1. Single date: " -12/24" (group 1, 2)
+        // 2. Today: " -today" (no capture group used for logic, matched by text)
+        // 3. Range: " 12/26-12/31" (group 3, 4, 5, 6) -> M/D-M/D
+        const regex = /\s-(\d{1,2})\/(\d{1,2})$|\s-today$|\s(\d{1,2})\/(\d{1,2})-(\d{1,2})\/(\d{1,2})$/i;
 
         cards.forEach(card => {
             const projectColor = card.dataset.color || PROJECT_COLORS[0];
             const lis = card.querySelectorAll('.taskList li');
 
             lis.forEach(li => {
-                // li直下のテキストノードのみを取得する
-                // これにより、子要素（ul/ol/divなど）のテキストを含めないようにする
                 let text = '';
                 li.childNodes.forEach(node => {
-                    if (node.nodeType === 3) { // Text node
+                    if (node.nodeType === 3) {
                         text += node.textContent;
                     }
                 });
 
                 text = text.trim();
-                // ▼ボタンなどの装飾文字を除去（ボタンは要素なのでテキストノードには含まれないはずだが念のため）
                 text = text.replace(/^▼/, '').trim();
 
                 const match = text.match(regex);
                 if (match) {
-                    const month = parseInt(match[1]);
-                    const day = parseInt(match[2]);
+                    let title = text.replace(regex, '');
 
-                    const dateIdThisYear = `cell-${currentYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const dateIdNextYear = `cell-${currentYear + 1}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    // --- Case 1: Range (12/26-12/31) ---
+                    if (match[3] && match[4] && match[5] && match[6]) {
+                        const startMonth = parseInt(match[3]);
+                        const startDay = parseInt(match[4]);
+                        const endMonth = parseInt(match[5]);
+                        const endDay = parseInt(match[6]);
 
-                    let targetCell = document.getElementById(dateIdThisYear);
-                    if (!targetCell) {
-                        targetCell = document.getElementById(dateIdNextYear);
+                        // Determine year for start and end
+                        // Simple logic: if month is small and current month is large, maybe next year.
+                        // Or just assume current year -> if end < start, end is next year.
+                        // For simplicity, let's assume range starts in currentYear (or next if specified? no, keep simple).
+                        // If endMonth < startMonth, endYear is startYear + 1.
+
+                        // To properly render, we iterate dates.
+                        let startYear = currentYear;
+                        // If user types 1/5-1/10 in Dec, maybe next year? Let's stick to currentYear for start unless logic requires otherwise.
+                        // Actually, if we are in Dec and type 1/5, it likely means next year. 
+                        // But existing logic for single date assumes currentYear or nextYear based on calendar existence.
+                        // Let's create Date objects.
+
+                        let sDate = new Date(startYear, startMonth - 1, startDay);
+                        let eDate = new Date(startYear, endMonth - 1, endDay);
+
+                        if (eDate < sDate) {
+                            // 年またぎと判断 (12/26 - 1/5)
+                            eDate.setFullYear(startYear + 1);
+                        }
+
+                        // Loop from sDate to eDate
+                        let loopDate = new Date(sDate);
+                        while (loopDate <= eDate) {
+                            const y = loopDate.getFullYear();
+                            const m = loopDate.getMonth() + 1;
+                            const d = loopDate.getDate();
+                            const dayOfWeek = loopDate.getDay(); // 0:Sun, 1:Mon, ..., 6:Sat
+                            const dateId = `cell-${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+                            const targetCell = document.getElementById(dateId);
+                            if (targetCell) {
+                                const taskDiv = document.createElement('div');
+                                taskDiv.className = 'calendar-task';
+
+                                // テキスト表示条件: 期間開始日 または 月曜日
+                                const isStartDay = (loopDate.getTime() === sDate.getTime());
+                                const isMonday = (dayOfWeek === 1);
+
+                                if (isStartDay || isMonday) {
+                                    taskDiv.textContent = title;
+                                } else {
+                                    taskDiv.innerHTML = '&nbsp;'; // 高さを維持するため空白を入れる
+                                }
+
+                                taskDiv.dataset.fullText = title;
+                                taskDiv.style.backgroundColor = projectColor;
+
+                                // クラス付与（見た目の調整）
+                                if (isStartDay && loopDate.getTime() !== eDate.getTime()) {
+                                    taskDiv.classList.add('range-start');
+                                } else if (loopDate.getTime() === eDate.getTime() && loopDate.getTime() !== sDate.getTime()) {
+                                    taskDiv.classList.add('range-end');
+                                } else if (loopDate.getTime() !== sDate.getTime() && loopDate.getTime() !== eDate.getTime()) {
+                                    taskDiv.classList.add('range-middle');
+                                }
+
+                                targetCell.appendChild(taskDiv);
+                            }
+                            loopDate.setDate(loopDate.getDate() + 1);
+                        }
                     }
+                    // --- Case 2: Single Date or Today ---
+                    else {
+                        let month, day;
+                        if (match[0].toLowerCase().trim() === '-today') {
+                            const today = new Date();
+                            month = today.getMonth() + 1;
+                            day = today.getDate();
+                        } else {
+                            month = parseInt(match[1]);
+                            day = parseInt(match[2]);
+                        }
 
-                    if (targetCell) {
-                        const taskDiv = document.createElement('div');
-                        taskDiv.className = 'calendar-task';
-                        const title = text.replace(regex, '');
-                        taskDiv.textContent = title;
-                        taskDiv.dataset.fullText = title;
-                        // プロジェクトの色を適用
-                        taskDiv.style.backgroundColor = projectColor;
-                        targetCell.appendChild(taskDiv);
+                        const dateIdThisYear = `cell-${currentYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                        const dateIdNextYear = `cell-${currentYear + 1}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+                        let targetCell = document.getElementById(dateIdThisYear);
+                        if (!targetCell) {
+                            targetCell = document.getElementById(dateIdNextYear);
+                        }
+
+                        if (targetCell) {
+                            const taskDiv = document.createElement('div');
+                            taskDiv.className = 'calendar-task';
+                            taskDiv.textContent = title;
+                            taskDiv.dataset.fullText = title;
+                            taskDiv.style.backgroundColor = projectColor;
+                            targetCell.appendChild(taskDiv);
+                        }
                     }
                 }
             });
@@ -294,6 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderProjects() {
         board.innerHTML = '';
+
         projects.forEach(proj => {
             const card = createProjectCard(proj);
             board.appendChild(card);
@@ -374,16 +500,26 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => document.addEventListener('click', closeHandler), 0);
     }
 
-    function addNewProject() {
+    function addNewProject(referenceCard = null) {
         const newProj = {
             id: Date.now(),
             title: '新規プロジェクト',
             html: '<li></li>',
             color: PROJECT_COLORS[0]
         };
-        // DOMに追加してから保存しないと、saveProjects()がDOMから読み取る際に反映されない
         const card = createProjectCard(newProj);
-        board.appendChild(card);
+
+        if (referenceCard) {
+            // 基準となるカードがある場合は、その次の兄弟要素の前に挿入（= 直後に挿入）
+            if (referenceCard.nextSibling) {
+                board.insertBefore(card, referenceCard.nextSibling);
+            } else {
+                board.appendChild(card);
+            }
+        } else {
+            // 基準がない場合は末尾に追加
+            board.appendChild(card);
+        }
 
         // プロジェクトリストを更新して保存
         saveProjects();
@@ -456,7 +592,8 @@ document.addEventListener('DOMContentLoaded', () => {
     board.addEventListener('click', (e) => {
         if (e.target.classList.contains('add-project-btn')) {
             saveHistory();
-            addNewProject();
+            const currentCard = e.target.closest('.project-card');
+            addNewProject(currentCard);
             return;
         }
 
