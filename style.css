@@ -75,7 +75,8 @@
 }
 
 #calendar-sidebar {
-    width: 600px;
+    width: auto;
+    flex: 1;
     min-width: 400px;
     height: 100%;
     background: white;
@@ -85,13 +86,14 @@
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    transition: width 0.3s ease, min-width 0.3s ease, opacity 0.3s ease;
+    transition: width 0.3s ease, min-width 0.3s ease, opacity 0.3s ease, flex-grow 0.3s ease;
     opacity: 1;
 }
 
 #calendar-sidebar.hidden {
     width: 0;
     min-width: 0;
+    flex: 0 0 0;
     opacity: 0;
     border-left: none;
     pointer-events: none;
@@ -255,7 +257,8 @@ body {
 }
 
 #main-area {
-    flex: 1;
+    flex: 0 0 auto;
+    width: auto;
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
@@ -277,68 +280,10 @@ body {
     margin: 0 auto;
 }
 
-/* 今日のタスクカード */
-.today-card {
-    grid-column: 1 / -1;
-    /* 全カラム幅 */
-    width: 100%;
-    /* 親グリッド幅に合わせる */
-    min-width: unset;
-    /* project-cardのmin-widthを上書き */
-    max-width: 832px;
-    /* 400*2 + 32(gap) */
-    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);
-    border: 2px solid #3498db;
-    box-shadow: 0 8px 16px rgba(52, 152, 219, 0.2);
-}
-
-.today-card .project-title {
-    color: #2c3e50;
-    border-bottom: 2px solid #3498db;
-    padding-bottom: 10px;
-    margin-bottom: 15px;
-    cursor: default;
-}
-
-.today-card .project-title:hover,
-.today-card .project-title:focus {
-    border-bottom-color: #3498db;
-    /* ホバー時も色変えない */
-}
-
-/* 今日のタスクリストアイテム */
-.today-card .taskList li {
-    padding: 8px 12px;
-    margin-bottom: 6px;
-    background: white;
-    border-radius: 6px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    list-style: none;
-    /* ドット消す */
-    padding-left: 12px;
-    /* ドット用スペース削除 */
-}
-
-.today-card .taskList li::before {
-    display: none;
-    /* ドット消す */
-}
-
-.today-card .taskList li .project-label {
-    display: inline-block;
-    font-size: 0.75rem;
-    color: white;
-    background-color: #999;
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-right: 8px;
-    vertical-align: middle;
-}
-
-.today-card .color-picker-btn,
-.today-card .add-project-btn {
-    display: none;
-    /* 不要なボタン非表示 */
+/* 今日のタスク強調表示 */
+.taskList li.is-today {
+    color: var(--project-color);
+    font-weight: bold;
 }
 
 .project-card {
