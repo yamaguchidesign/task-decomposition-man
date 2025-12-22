@@ -18,32 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
         '#7cb342'  // Olive
     ];
 
-    // カレンダー表示切り替えボタンの生成
-    const toggleCalendarBtn = document.createElement('div');
-    toggleCalendarBtn.className = 'calendar-toggle-btn';
-    toggleCalendarBtn.textContent = '>'; // 初期状態: 開いているので閉じるボタン
-    toggleCalendarBtn.title = 'カレンダーの表示/非表示';
-    document.body.appendChild(toggleCalendarBtn);
-
-    // カレンダー表示状態の初期化
-    const isCalendarVisible = localStorage.getItem('isCalendarVisible') !== 'false'; // デフォルトtrue
-    if (!isCalendarVisible) {
-        calendarSidebar.classList.add('hidden');
-        toggleCalendarBtn.classList.add('closed');
-        toggleCalendarBtn.textContent = '<'; // 閉じているので開くボタン
-    }
-
-    // 表示切り替えイベント
-    toggleCalendarBtn.addEventListener('click', () => {
-        calendarSidebar.classList.toggle('hidden');
-        toggleCalendarBtn.classList.toggle('closed');
-
-        const isVisible = !calendarSidebar.classList.contains('hidden');
-        toggleCalendarBtn.textContent = isVisible ? '>' : '<';
-
-        localStorage.setItem('isCalendarVisible', isVisible);
-    });
-
     const historyStack = [];
     const redoStack = [];
     const MAX_HISTORY = 50;
@@ -831,6 +805,31 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetLis.length === 0) return;
         const selectionSnapshot = saveSelectionState(targetLis);
         targetLis.forEach(li => {
+            // 子リストがある場合、中身を親リスト（現在の階層）に展開して置いていく
+            const childUl = li.querySelector('ul, ol');
+            if (childUl && childUl.children.length > 0) {
+                const parentUl = li.parentNode;
+                const frag = document.createDocumentFragment();
+                while (childUl.firstChild) {
+                    frag.appendChild(childUl.firstChild);
+                }
+
+                // 現在のliの直後に配置
+                if (li.nextSibling) {
+                    parentUl.insertBefore(frag, li.nextSibling);
+                } else {
+                    parentUl.appendChild(frag);
+                }
+                childUl.remove();
+
+                // 状態リセット
+                li.classList.remove('has-children', 'collapsed');
+                const btn = li.querySelector('.toggle-btn');
+                if (btn) btn.remove();
+                const preview = li.querySelector('.child-preview');
+                if (preview) preview.remove();
+            }
+
             const prevLi = li.previousElementSibling;
             if (prevLi && prevLi.tagName === 'LI') {
                 let childUl = prevLi.querySelector('ul, ol');
@@ -957,6 +956,68 @@ document.addEventListener('DOMContentLoaded', () => {
             // プレビュー用要素の処理
             let preview = li.querySelector(':scope > .child-preview');
             if (preview) preview.remove(); // 一旦削除して再生成（状態更新のため）
+
+            // 今日のタスクか判定してクラス付与
+            // テキスト取得
+            let text = '';
+            li.childNodes.forEach(node => {
+                if (node.nodeType === 3) text += node.textContent;
+            });
+            text = text.trim().replace(/^▼/, '').trim();
+
+            let isToday = false;
+            const regexDate = /\s-((\d{1,2})\/(\d{1,2})|today)$/i;
+            const regexRange = /\s(\d{1,2})\/(\d{1,2})-(\d{1,2})\/(\d{1,2})$/i;
+
+            // 1. -today チェック
+            if (text.match(/-today$/i)) {
+                isToday = true;
+            }
+
+            // 2. -MM/DD チェック
+            const matchDate = text.match(regexDate);
+            if (!isToday && matchDate) {
+                const today = new Date();
+                const m = today.getMonth() + 1;
+                const d = today.getDate();
+                if (matchDate[1].toLowerCase() === 'today') {
+                    isToday = true;
+                } else {
+                    const mo = parseInt(matchDate[2]);
+                    const da = parseInt(matchDate[3]);
+                    if (mo === m && da === d) isToday = true;
+                }
+            }
+
+            // 3. 期間チェック
+            if (!isToday) {
+                const matchRange = text.match(regexRange);
+                if (matchRange) {
+                    const today = new Date();
+                    const currentYear = today.getFullYear();
+                    const m = today.getMonth() + 1;
+                    const d = today.getDate();
+                    const sm = parseInt(matchRange[1]);
+                    const sd = parseInt(matchRange[2]);
+                    const em = parseInt(matchRange[3]);
+                    const ed = parseInt(matchRange[4]);
+
+                    let sDate = new Date(currentYear, sm - 1, sd);
+                    let eDate = new Date(currentYear, em - 1, ed);
+                    if (eDate < sDate) eDate.setFullYear(currentYear + 1);
+
+                    const todayDate = new Date(currentYear, m - 1, d);
+                    if (todayDate >= sDate && todayDate <= eDate) {
+                        isToday = true;
+                    }
+                }
+            }
+
+            if (isToday) {
+                li.classList.add('is-today');
+            } else {
+                li.classList.remove('is-today');
+            }
 
             if (hasChildList) {
                 li.classList.add('has-children');
