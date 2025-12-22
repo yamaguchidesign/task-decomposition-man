@@ -1,11 +1,14 @@
-/* ... (既存スタイル) ... */
-
 /* カレンダー内のタスク表示 */
 .calendar-task {
     background-color: #3498db;
     color: white;
     font-size: 0.75rem;
-    padding: 2px 4px;
+    height: 18px;
+    /* 高さを固定 */
+    line-height: 18px;
+    /* 上下中央配置 */
+    padding: 0 4px;
+    /* 上下パディング除去 */
     border-radius: 3px;
     margin-top: 2px;
     width: calc(100% - 8px);
@@ -18,13 +21,39 @@
     margin-left: auto;
     margin-right: auto;
     transition: background-color 0.2s;
+    position: relative;
+    z-index: 1;
 }
 
 .calendar-task:hover {
     filter: brightness(0.9);
+    z-index: 5;
 }
 
-/* ... (tooltip, deadline-text, calendar-sidebar等 変更なし) ... */
+/* 期間表示用スタイル */
+.calendar-task.range-start {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    margin-right: 0;
+    width: calc(100% - 4px);
+    margin-left: 4px;
+}
+
+.calendar-task.range-middle {
+    border-radius: 0;
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+}
+
+.calendar-task.range-end {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    margin-left: 0;
+    width: calc(100% - 4px);
+    margin-right: 4px;
+}
+
 .task-tooltip {
     position: fixed;
     background: rgba(0, 0, 0, 0.8);
@@ -195,15 +224,15 @@
 }
 
 .calendar-cell.past-day {
-    background-color: #eeeeee;
-    color: #999;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: #ddd;
 }
 
 .calendar-cell.past-day.saturday,
 .calendar-cell.past-day.sunday,
 .calendar-cell.past-day.holiday {
-    background-color: #eeeeee;
-    color: #bbb;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: #ccc;
 }
 
 .calendar-cell.empty {
@@ -246,6 +275,70 @@ body {
     height: auto;
     width: auto;
     margin: 0 auto;
+}
+
+/* 今日のタスクカード */
+.today-card {
+    grid-column: 1 / -1;
+    /* 全カラム幅 */
+    width: 100%;
+    /* 親グリッド幅に合わせる */
+    min-width: unset;
+    /* project-cardのmin-widthを上書き */
+    max-width: 832px;
+    /* 400*2 + 32(gap) */
+    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);
+    border: 2px solid #3498db;
+    box-shadow: 0 8px 16px rgba(52, 152, 219, 0.2);
+}
+
+.today-card .project-title {
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    cursor: default;
+}
+
+.today-card .project-title:hover,
+.today-card .project-title:focus {
+    border-bottom-color: #3498db;
+    /* ホバー時も色変えない */
+}
+
+/* 今日のタスクリストアイテム */
+.today-card .taskList li {
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    list-style: none;
+    /* ドット消す */
+    padding-left: 12px;
+    /* ドット用スペース削除 */
+}
+
+.today-card .taskList li::before {
+    display: none;
+    /* ドット消す */
+}
+
+.today-card .taskList li .project-label {
+    display: inline-block;
+    font-size: 0.75rem;
+    color: white;
+    background-color: #999;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.today-card .color-picker-btn,
+.today-card .add-project-btn {
+    display: none;
+    /* 不要なボタン非表示 */
 }
 
 .project-card {
@@ -436,13 +529,12 @@ li.collapsed>.toggle-btn {
     transform: rotate(-90deg);
 }
 
-/* 畳まれた時の子タスクプレビュー */
 .child-preview {
     color: #999;
     font-size: 0.8em;
     margin-left: 8px;
-    /* 少し詰める */
     pointer-events: none;
+    user-select: none;
     display: inline-block;
     max-width: 200px;
     overflow: hidden;
@@ -464,7 +556,6 @@ li.collapsed>.toggle-btn {
     color: black;
 }
 
-/* ... (hover-progress, progress-keyframes 等) ... */
 .hover-progress {
     position: fixed;
     width: 20px;
