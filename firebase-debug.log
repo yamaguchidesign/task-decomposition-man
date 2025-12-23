@@ -1,0 +1,36 @@
+[debug] [2025-12-23T14:15:25.194Z] ----------------------------------------------------------------------
+[debug] [2025-12-23T14:15:25.200Z] Command:       /Users/yamaguchishohei/.nvm/versions/node/v20.19.1/bin/node /Users/yamaguchishohei/.nvm/versions/node/v20.19.1/bin/firebase deploy
+[debug] [2025-12-23T14:15:25.200Z] CLI Version:   15.1.0
+[debug] [2025-12-23T14:15:25.200Z] Platform:      darwin
+[debug] [2025-12-23T14:15:25.200Z] Node Version:  v20.19.1
+[debug] [2025-12-23T14:15:25.200Z] Time:          Tue Dec 23 2025 23:15:25 GMT+0900 (日本標準時)
+[debug] [2025-12-23T14:15:25.200Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-12-23T14:15:25.807Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-12-23T14:15:25.807Z] > authorizing via signed-in user (yamaguchishohei93@gmail.com)
+[debug] [2025-12-23T14:15:25.807Z] [iam] checking project task-list-2025 for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2025-12-23T14:15:25.808Z] Checked if tokens are valid: false, expires at: 1766496778712
+[debug] [2025-12-23T14:15:25.808Z] Checked if tokens are valid: false, expires at: 1766496778712
+[debug] [2025-12-23T14:15:25.808Z] > refreshing access token with scopes: []
+[debug] [2025-12-23T14:15:25.810Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-12-23T14:15:25.810Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-12-23T14:15:26.003Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-12-23T14:15:26.003Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-12-23T14:15:26.017Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/task-list-2025:testIamPermissions [none]
+[debug] [2025-12-23T14:15:26.017Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/task-list-2025:testIamPermissions x-goog-quota-user=projects/task-list-2025
+[debug] [2025-12-23T14:15:26.017Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/task-list-2025:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2025-12-23T14:15:27.130Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/task-list-2025:testIamPermissions 200
+[debug] [2025-12-23T14:15:27.130Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/task-list-2025:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2025-12-23T14:15:27.131Z] Checked if tokens are valid: true, expires at: 1766502925003
+[debug] [2025-12-23T14:15:27.131Z] Checked if tokens are valid: true, expires at: 1766502925003
+[debug] [2025-12-23T14:15:27.131Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/task-list-2025 [none]
+[debug] [2025-12-23T14:15:27.747Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/task-list-2025 200
+[debug] [2025-12-23T14:15:27.748Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/task-list-2025 {"projectId":"task-list-2025","projectNumber":"58127807534","displayName":"task-list-2025","name":"projects/task-list-2025","resources":{"hostingSite":"task-list-2025","realtimeDatabaseInstance":"task-list-2025-default-rtdb"},"state":"ACTIVE","etag":"1_8ab22324-2ece-4401-aed7-4f03f96b96f9"}
+[info] 
+[info] === Deploying to 'task-list-2025'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2025-12-23T14:15:27.758Z] Checked if tokens are valid: true, expires at: 1766502925003
+[debug] [2025-12-23T14:15:27.758Z] Checked if tokens are valid: true, expires at: 1766502925003
+[debug] [2025-12-23T14:15:27.758Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/task-list-2025/versions [none]
+[debug] [2025-12-23T14:15:27.758Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/task-list-2025/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}

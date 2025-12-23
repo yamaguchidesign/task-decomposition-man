@@ -1,3 +1,34 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+// TODO: Firebaseコンソールで取得した設定値を貼り付けてください
+const firebaseConfig = {
+    apiKey: "AIzaSyDsWx2E2JxS_7LVXEkWt5QBY56wIfXV5R4",
+    authDomain: "task-list-2025.firebaseapp.com",
+    databaseURL: "https://task-list-2025-default-rtdb.firebaseio.com",
+    projectId: "task-list-2025",
+    storageBucket: "task-list-2025.firebasestorage.app",
+    messagingSenderId: "58127807534",
+    appId: "1:58127807534:web:949d9c0aaa78e19e841bbf",
+    measurementId: "G-7D25Q1BKRZ"
+};
+
+// Initialize Firebase
+let app;
+let db;
+try {
+    // Configがデフォルトのままだとエラーになる可能性があるのでチェック
+    if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+        app = initializeApp(firebaseConfig);
+        db = getDatabase(app);
+        console.log("Firebase initialized");
+    } else {
+        console.log("Firebase config placeholder detected. Using localStorage only.");
+    }
+} catch (e) {
+    console.warn("Firebase initialization failed:", e);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const board = document.getElementById('board');
     const calendarSidebar = document.getElementById('calendar-sidebar');
@@ -23,6 +54,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_HISTORY = 50;
 
     let projects = [];
+    let isEditing = false; // 編集中フラグ
+
+    // 編集状態の監視
+    board.addEventListener('focusin', (e) => {
+        if (e.target.isContentEditable) {
+            isEditing = true;
+        }
+    });
+    board.addEventListener('focusout', (e) => {
+        if (e.target.isContentEditable) {
+            // 少し遅延させて、フォーカス移動時の誤判定を防ぐ
+            setTimeout(() => {
+                // まだどこかにフォーカスがあるか確認
+                const active = document.activeElement;
+                if (!active || !board.contains(active) || !active.isContentEditable) {
+                    isEditing = false;
+                }
+            }, 100);
+        }
+    });
+
+    // データ同期の初期化
+    initDataSync();
 
     // 日本の祝日データ
     const holidays = {
@@ -32,7 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
         '2027-01-01': '元日', '2027-01-11': '成人の日', '2027-02-11': '建国記念の日', '2027-02-23': '天皇誕生日', '2027-03-21': '春分の日', '2027-03-22': '振替休日', '2027-04-29': '昭和の日', '2027-05-03': '憲法記念日', '2027-05-04': 'みどりの日', '2027-05-05': 'こどもの日', '2027-07-19': '海の日', '2027-08-11': '山の日', '2027-09-20': '敬老の日', '2027-09-23': '秋分の日', '2027-10-11': 'スポーツの日', '2027-11-03': '文化の日', '2027-11-23': '勤労感謝の日'
     };
 
-    loadProjects();
     renderCalendar();
 
     // ロード後にタスクイベントを表示
@@ -245,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const match = text.match(regex);
                 if (match) {
                     let title = text.replace(regex, '');
-                    
+
                     // 完了タスク判定
                     let isTaskCompleted = false;
                     if (title.startsWith('✅') || title.startsWith('✅ ')) {
@@ -368,7 +421,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // プロジェクト管理
     // ----------------------------------------------------
 
-    function loadProjects() {
+    function initDataSync() {
+        if (!db) {
+            console.log("Using localStorage mode");
+            loadProjectsFromLocal();
+            return;
+        }
+
+        console.log("Connecting to Firebase DB...");
+        const projectsRef = ref(db, 'projects');
+        onValue(projectsRef, (snapshot) => {
+            console.log("Data received from Firebase");
+            const data = snapshot.val();
+            console.log("Data content:", data);
+
+            if (data) {
+                projects = data;
+                renderProjects();
+            } else {
+                console.log("No data in DB, migrating local data...");
+                loadProjectsFromLocalAndMigrate();
+            }
+        }, (error) => {
+            console.error("Firebase read error:", error);
+        });
+    }
+
+    function loadProjectsFromLocal() {
         const data = localStorage.getItem('myProjects');
         if (data) {
             try {
@@ -379,6 +458,28 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        setupDefaultProjectsIfEmpty();
+        renderProjects();
+    }
+
+    function loadProjectsFromLocalAndMigrate() {
+        const data = localStorage.getItem('myProjects');
+        if (data) {
+            try {
+                projects = JSON.parse(data);
+            } catch (e) { projects = []; }
+        }
+
+        setupDefaultProjectsIfEmpty();
+
+        console.log("Projects after setup:", projects);
+        renderProjects(); // 明示的に描画
+
+        // マイグレーションまたは初期化のために保存（これでFirebaseにも飛ぶ）
+        saveProjects(false);
+    }
+
+    function setupDefaultProjectsIfEmpty() {
         if (!projects || projects.length === 0) {
             const oldHtml = localStorage.getItem('myTasksHTML');
             if (oldHtml) {
@@ -397,16 +498,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }];
             }
         }
-
         // 古いデータ形式（colorがない）への対応
         projects.forEach(p => {
             if (!p.color) p.color = PROJECT_COLORS[0];
         });
-
-        renderProjects();
     }
 
     function renderProjects() {
+        // 編集中は外部からの更新による再描画をブロックして、入力フォーカスを守る
+        if (isEditing) {
+            console.log("Skipping render because user is editing.");
+            return;
+        }
+
         board.innerHTML = '';
 
         projects.forEach(proj => {
@@ -518,17 +622,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveProjects(shouldSaveHistory = false) {
         const cards = document.querySelectorAll('.project-card');
-        projects = Array.from(cards).map(card => {
-            return {
-                id: parseInt(card.dataset.id),
-                title: card.querySelector('.project-title').textContent,
-                html: card.querySelector('.taskList').innerHTML,
-                color: card.dataset.color || PROJECT_COLORS[0]
-            };
-        });
+        // カードがある場合はDOMから取得、ない場合（初期化時など）は既存のprojectsを使う
+        if (cards.length > 0) {
+            projects = Array.from(cards).map(card => {
+                return {
+                    id: parseInt(card.dataset.id),
+                    title: card.querySelector('.project-title').textContent,
+                    html: card.querySelector('.taskList').innerHTML,
+                    color: card.dataset.color || PROJECT_COLORS[0]
+                };
+            });
+        } else {
+            console.log("No cards in DOM, saving current memory state:", projects);
+        }
 
         if (shouldSaveHistory) saveHistory();
         localStorage.setItem('myProjects', JSON.stringify(projects));
+
+        // Firebaseへ保存
+        if (db) {
+            console.log("Saving to Firebase...", projects);
+            set(ref(db, 'projects'), projects).then(() => {
+                console.log("Firebase save success!");
+            }).catch(err => {
+                console.error("Firebase save failed:", err);
+            });
+        }
 
         // カレンダー更新
         renderCalendarEvents();
@@ -797,7 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function toggleTaskCompletion(rootList) {
         const targetLis = getSelectedListItems(rootList);
         if (targetLis.length === 0) return;
-        
+
         saveHistory();
         const selectionSnapshot = saveSelectionState(targetLis);
 
@@ -817,7 +936,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 先頭の "✅ " をチェック
                 // 注意: トグルボタンなどがある場合、テキストの先頭が期待通りか確認必要だが、
                 // テキストノードの先頭を見るのでボタン(span)は影響しないはず。
-                
+
                 // 既存の "✅ " を削除するか追加するか
                 // 空白文字の扱いなども考慮
                 if (text.startsWith('✅ ')) {
@@ -1042,15 +1161,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (node.nodeType === 3) text += node.textContent;
             });
             // トグルボタンを除去した純粋なテキスト
-            // 先頭の '▼' はボタンのテキストではなくCSSで付与されていない？
-            // 既存コードでは textContent に '▼' が含まれる前提の処理があるが、
-            // toggle-btnのtextContentは'▼'なので、childNodes走査で除外すべきだが
-            // textContentで取得しているので含まれる可能性がある。
-            
-            // childNodesのループで textNodeのみ連結しているので、要素(span.toggle-btn)のテキストは含まれないはず。
-            // しかし、既存コード: text = text.trim().replace(/^▼/, '').trim();
-            // これは念の為の処理か、あるいは以前の実装の名残か。
-            
             let rawText = text;
             text = text.trim().replace(/^▼/, '').trim();
 
