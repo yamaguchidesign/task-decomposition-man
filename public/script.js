@@ -33,6 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const board = document.getElementById('board');
     const calendarSidebar = document.getElementById('calendar-sidebar');
 
+    const COMPLETED_PROJECT_ID = 11111;
+
     // 12色のカラーパレット
     const PROJECT_COLORS = [
         '#3498db', // Blue (Default)
@@ -200,7 +202,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentMonth = today.getMonth();
         const todayZero = new Date(currentYear, currentMonth, today.getDate());
 
-        let renderDate = new Date(currentYear, currentMonth, 1);
+        // 開始日計算：今日の週の前の週の月曜日
+        // 0:Sun, 1:Mon ... 6:Sat
+        const dayOfWeek = today.getDay();
+        // 今週の月曜日までの日数差分 (Mon(1)->0, Tue(2)->1, ..., Sun(0)->6)
+        const daysToMonday = (dayOfWeek + 6) % 7;
+
+        // 今週の月曜日
+        const thisMonday = new Date(today);
+        thisMonday.setDate(today.getDate() - daysToMonday);
+
+        // 先週の月曜日
+        const lastMonday = new Date(thisMonday);
+        lastMonday.setDate(thisMonday.getDate() - 7);
+
+        let renderDate = new Date(lastMonday); // コピーを作成してレンダリング用にする
+
+        // 終了日：とりあえず従来の「今月+12ヶ月」の範囲をカバーするように設定
         const endDate = new Date(currentYear, currentMonth + 12, 0);
 
         let firstDayIndex = renderDate.getDay();
@@ -211,6 +229,8 @@ document.addEventListener('DOMContentLoaded', () => {
             emptyCell.className = 'calendar-cell empty';
             grid.appendChild(emptyCell);
         }
+
+        let isFirstRenderedCell = true;
 
         while (renderDate <= endDate) {
             const cell = document.createElement('div');
@@ -231,13 +251,17 @@ document.addEventListener('DOMContentLoaded', () => {
             dateNum.className = 'date-number';
             dateNum.textContent = d;
 
-            if (d === 1) {
+            // 1日、またはカレンダー表示の最初のセルには月ラベルを表示
+            if (d === 1 || isFirstRenderedCell) {
                 const monthLabel = document.createElement('span');
                 monthLabel.className = 'month-label';
                 monthLabel.textContent = `${m + 1}月`;
                 cell.appendChild(monthLabel);
-                cell.classList.add('first-day');
+                if (d === 1) {
+                    cell.classList.add('first-day');
+                }
             }
+            isFirstRenderedCell = false;
 
             cell.appendChild(dateNum);
 
@@ -513,16 +537,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
         board.innerHTML = '';
 
-        projects.forEach(proj => {
+        // 完了済みプロジェクトエリアがなければ作成
+        let completedProject = projects.find(p => p.id === COMPLETED_PROJECT_ID);
+        if (!completedProject) {
+            completedProject = {
+                id: COMPLETED_PROJECT_ID,
+                title: '完了したタスク',
+                html: '<li></li>',
+                color: '#cccccc'
+            };
+            // プロジェクトリストにはまだ追加しない（saveProjectsで追加されるか、ここで追加するか）
+            // ここで追加しないと表示されないので、一時的に表示用に使う
+        }
+
+        // 通常のプロジェクトを描画
+        const normalProjects = projects.filter(p => p.id !== COMPLETED_PROJECT_ID);
+
+        normalProjects.forEach(proj => {
             const card = createProjectCard(proj);
             board.appendChild(card);
-
             const list = card.querySelector('.taskList');
             setTimeout(() => {
                 normalizeList(list);
                 updateToggleButtons(list);
             }, 0);
         });
+
+        // 完了済みプロジェクトを描画（常に末尾）
+        const completedCard = createProjectCard(completedProject);
+        completedCard.classList.add('completed-projects-area');
+        board.appendChild(completedCard);
+
+        const cList = completedCard.querySelector('.taskList');
+        setTimeout(() => {
+            normalizeList(cList);
+            updateToggleButtons(cList);
+        }, 0);
+
         // カレンダーイベント更新
         renderCalendarEvents();
     }
@@ -610,8 +661,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 board.appendChild(card);
             }
         } else {
-            // 基準がない場合は末尾に追加
-            board.appendChild(card);
+            // 基準がない場合は末尾に追加（ただし完了プロジェクトの前）
+            const completedArea = document.querySelector('.completed-projects-area');
+            if (completedArea) {
+                board.insertBefore(card, completedArea);
+            } else {
+                board.appendChild(card);
+            }
         }
 
         // プロジェクトリストを更新して保存
@@ -831,6 +887,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         // タスクが1つしかなく、それが空の場合（プロジェクト削除）
                         else if (list.querySelectorAll('li').length === 1) {
+                            // 完了タスクエリアは削除禁止
+                            if (list.closest('.completed-projects-area')) {
+                                return;
+                            }
+
                             e.preventDefault();
                             if (confirm('プロジェクトを削除しますか？')) {
                                 saveHistory();
@@ -918,37 +979,34 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetLis.length === 0) return;
 
         saveHistory();
-        const selectionSnapshot = saveSelectionState(targetLis);
+
+        const completedCard = document.querySelector('.project-card.completed-projects-area');
+        const completedList = completedCard ? completedCard.querySelector('.taskList') : null;
 
         targetLis.forEach(li => {
-            // テキストノードを探す
             let textNode = null;
             for (let i = 0; i < li.childNodes.length; i++) {
                 const node = li.childNodes[i];
-                if (node.nodeType === 3) { // Text node
+                if (node.nodeType === 3) {
                     textNode = node;
                     break;
                 }
             }
 
+            let isNowCompleted = false;
+
             if (textNode) {
                 let text = textNode.textContent;
-                // 先頭の "✅ " をチェック
-                // 注意: トグルボタンなどがある場合、テキストの先頭が期待通りか確認必要だが、
-                // テキストノードの先頭を見るのでボタン(span)は影響しないはず。
-
-                // 既存の "✅ " を削除するか追加するか
-                // 空白文字の扱いなども考慮
-                if (text.startsWith('✅ ')) {
-                    textNode.textContent = text.substring(2); // "✅ " を削除
-                } else if (text.startsWith('✅')) {
-                    textNode.textContent = text.substring(1); // "✅" を削除（スペースなしの場合）
+                if (text.startsWith('✅ ') || text.startsWith('✅')) {
+                    // 完了解除
+                    textNode.textContent = text.replace(/^✅\s?/, '');
+                    isNowCompleted = false;
                 } else {
+                    // 完了にする
                     textNode.textContent = '✅ ' + text;
+                    isNowCompleted = true;
                 }
             } else {
-                // テキストノードがない場合（空のliなど）、新しく追加
-                // ただしボタンの後ろに追加したい
                 let refNode = null;
                 if (li.firstChild && li.firstChild.classList && li.firstChild.classList.contains('toggle-btn')) {
                     refNode = li.firstChild.nextSibling;
@@ -957,20 +1015,84 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const newText = document.createTextNode('✅ ');
                 li.insertBefore(newText, refNode);
+                isNowCompleted = true;
+            }
+
+            const currentCard = li.closest('.project-card');
+
+            // スタイル更新（見た目を完了状態にする）
+            const parentList = li.closest('.taskList');
+            if (parentList) updateToggleButtons(parentList);
+
+            if (isNowCompleted) {
+                // 完了になった -> 遅延移動
+                if (currentCard && !currentCard.classList.contains('completed-projects-area') && completedList) {
+                    li.dataset.originalProjectId = currentCard.dataset.id;
+
+                    // 1秒待機 -> フェードアウト(0.2s) -> 移動
+                    setTimeout(() => {
+                        // DOMから外れていたら中止 (Undo/Redo/Deleteなどで削除された場合)
+                        if (!li.isConnected) return;
+
+                        // テキストが手動で編集されて「未完了」に戻っていたら中止
+                        let currentText = '';
+                        li.childNodes.forEach(node => { if (node.nodeType === 3) currentText += node.textContent; });
+                        if (!currentText.trim().startsWith('✅')) return;
+
+                        li.classList.add('fading-out');
+
+                        setTimeout(() => {
+                            if (!li.isConnected) return;
+
+                            completedList.appendChild(li);
+                            li.classList.remove('fading-out');
+                            // 移動先でスタイル更新
+                            updateToggleButtons(completedList);
+                            saveProjects();
+                        }, 200); // 0.2s fade out
+
+                    }, 1000); // 1s delay
+                }
+            } else {
+                // 未完了になった -> 即時移動（元に戻す）
+                if (currentCard && currentCard.classList.contains('completed-projects-area')) {
+                    const originalId = li.dataset.originalProjectId;
+                    let targetProjectCard = null;
+                    if (originalId) {
+                        targetProjectCard = document.querySelector(`.project-card[data-id="${originalId}"]`);
+                    }
+
+                    if (!targetProjectCard) {
+                        const cards = document.querySelectorAll('.project-card:not(.completed-projects-area)');
+                        if (cards.length > 0) targetProjectCard = cards[0];
+                    }
+
+                    if (targetProjectCard) {
+                        const targetList = targetProjectCard.querySelector('.taskList');
+                        targetList.appendChild(li);
+                        delete li.dataset.originalProjectId;
+
+                        // 移動先でスタイル更新
+                        updateToggleButtons(targetList);
+                        saveProjects();
+                    }
+                }
             }
         });
 
-        // スタイル更新
-        updateToggleButtons(rootList);
+        // 即時保存（完了マークがついた状態を保存するため）
         saveProjects();
-        restoreSelectionState(selectionSnapshot);
     }
 
     function getSelectedListItems(rootList) {
         const sel = window.getSelection();
         if (sel.rangeCount === 0) return [];
         const range = sel.getRangeAt(0);
+        // rootListチェックは外す（複数プロジェクトまたぐ選択はまれだが、
+        // コマンド実行時のターゲットリストがrootListとして渡されるので、
+        // それに含まれない場合はスキップされるのが正しい）
         if (!rootList.contains(range.commonAncestorContainer)) return [];
+
         const allLis = Array.from(rootList.querySelectorAll('li'));
         const selectedLis = [];
         let inRange = false;
