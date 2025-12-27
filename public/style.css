@@ -31,6 +31,13 @@
     color: rgba(0, 0, 0, 0.4);
 }
 
+/* フェードアウトアニメーション用 */
+.taskList li.fading-out {
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+    pointer-events: none;
+}
+
 /* カレンダー内の完了タスク */
 .calendar-task.completed {
     opacity: 0.6;
@@ -273,6 +280,26 @@ body {
     box-sizing: border-box;
 }
 
+/* 完了タスク用の特別スタイル */
+.project-card.completed-projects-area {
+    grid-column: 1 / -1; /* 全カラムにまたがる */
+    width: 100%;
+    min-width: 100%;
+    background-color: #f0f0f0;
+    border: 2px dashed #ccc;
+    box-shadow: none;
+}
+.project-card.completed-projects-area .add-project-btn {
+    display: none;
+}
+.project-card.completed-projects-area .color-picker-btn {
+    display: none;
+}
+.project-card.completed-projects-area .project-title {
+    pointer-events: none; /* タイトル編集不可 */
+    color: #7f8c8d;
+}
+
 .color-picker-btn {
     position: absolute;
     top: 10px;
@@ -508,5 +535,37 @@ li.collapsed>.toggle-btn {
 @keyframes progress {
     to {
         stroke-dashoffset: 0;
+    }
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+    #calendar-sidebar {
+        display: none !important;
+    }
+
+    #main-area {
+        width: 100%;
+        flex: 1;
+        overflow-x: hidden;
+    }
+
+    #board {
+        grid-template-columns: 1fr;
+        width: 100%;
+        padding: 1rem;
+        box-sizing: border-box;
+        gap: 1rem;
+    }
+
+    .project-card {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        margin: 0;
+    }
+    
+    .project-card.completed-projects-area {
+        grid-column: 1; /* モバイルでは1カラムに戻す */
     }
 }
