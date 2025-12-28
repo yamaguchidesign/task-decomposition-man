@@ -52,8 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     const historyStack = [];
-    const redoStack = [];
-    const MAX_HISTORY = 50;
+    // const redoStack = []; // 削除
+    // const MAX_HISTORY = 50; // 削除
 
     let projects = [];
     let isEditing = false; // 編集中フラグ
@@ -79,6 +79,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // データ同期の初期化
     initDataSync();
+
+    // SortableJSによるドラッグ&ドロップ初期化
+    if (typeof Sortable !== 'undefined') {
+        Sortable.create(board, {
+            animation: 150,
+            handle: '.drag-handle', // ハンドル部分でのみドラッグ可能
+            draggable: '.project-card', // ドラッグ対象のクラス
+            filter: '.completed-projects-area', // 完了エリアはドラッグ開始不可
+            onMove: function (evt) {
+                // 完了エリアとの入れ替えを禁止（完了エリアの後ろに行かないようにする）
+                return !evt.related.classList.contains('completed-projects-area');
+            },
+            onEnd: function () {
+                // 並び替え後に保存
+                saveProjects();
+            }
+        });
+    }
 
     // 日本の祝日データ
     const holidays = {
@@ -174,8 +192,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateTooltipPos(e) {
         if (!taskTooltip) return;
-        // マウスの少し右下に表示
-        taskTooltip.style.left = (e.clientX + 10) + 'px';
+        // マウスの左側に表示（CSSでtranslateX(-100%)を指定しているため、left位置が右端になる）
+        taskTooltip.style.left = (e.clientX - 5) + 'px';
         taskTooltip.style.top = (e.clientY + 10) + 'px';
     }
 
@@ -212,11 +230,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const thisMonday = new Date(today);
         thisMonday.setDate(today.getDate() - daysToMonday);
 
-        // 先週の月曜日
-        const lastMonday = new Date(thisMonday);
-        lastMonday.setDate(thisMonday.getDate() - 7);
-
-        let renderDate = new Date(lastMonday); // コピーを作成してレンダリング用にする
+        // 今週の月曜日から表示開始
+        let renderDate = new Date(thisMonday);
 
         // 終了日：とりあえず従来の「今月+12ヶ月」の範囲をカバーするように設定
         const endDate = new Date(currentYear, currentMonth + 12, 0);
@@ -588,6 +603,7 @@ document.addEventListener('DOMContentLoaded', () => {
         card.style.setProperty('--project-color', color);
 
         card.innerHTML = `
+            <div class="drag-handle"></div>
             <div class="color-picker-btn"></div>
             <div class="project-title" contenteditable="true">${proj.title}</div>
             <ul class="taskList" contenteditable="true">${proj.html}</ul>
@@ -676,7 +692,7 @@ document.addEventListener('DOMContentLoaded', () => {
         card.scrollIntoView({ behavior: 'smooth', inline: 'center' });
     }
 
-    function saveProjects(shouldSaveHistory = false) {
+    function saveProjects() { // 引数削除
         const cards = document.querySelectorAll('.project-card');
         // カードがある場合はDOMから取得、ない場合（初期化時など）は既存のprojectsを使う
         if (cards.length > 0) {
@@ -692,7 +708,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("No cards in DOM, saving current memory state:", projects);
         }
 
-        if (shouldSaveHistory) saveHistory();
+        // if (shouldSaveHistory) saveHistory(); // 削除
         localStorage.setItem('myProjects', JSON.stringify(projects));
 
         // Firebaseへ保存
@@ -709,53 +725,11 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCalendarEvents();
     }
 
-    // ... (History Management, Event Delegation はそのまま) ...
-    function saveHistory() {
-        const state = JSON.stringify(projects);
-        if (historyStack.length > 0 && historyStack[historyStack.length - 1] === state) {
-            return;
-        }
-        historyStack.push(state);
-        if (historyStack.length > MAX_HISTORY) {
-            historyStack.shift();
-        }
-        redoStack.length = 0;
-    }
-
-    function undo() {
-        if (historyStack.length === 0) return;
-
-        const currentState = JSON.stringify(projects);
-        if (redoStack.length === 0 || redoStack[redoStack.length - 1] !== currentState) {
-            redoStack.push(currentState);
-        }
-
-        const prevStateStr = historyStack.pop();
-        if (prevStateStr) {
-            if (prevStateStr === currentState && historyStack.length > 0) {
-                redoStack.push(prevStateStr);
-                const prevState2 = historyStack.pop();
-                projects = JSON.parse(prevState2);
-            } else {
-                projects = JSON.parse(prevStateStr);
-            }
-            renderProjects();
-            saveProjects(false);
-        }
-    }
-
-    function redo() {
-        if (redoStack.length === 0) return;
-        const nextStateStr = redoStack.pop();
-        historyStack.push(JSON.stringify(projects));
-        projects = JSON.parse(nextStateStr);
-        renderProjects();
-        saveProjects(false);
-    }
+    // ... (History Management Removed) ...
 
     board.addEventListener('click', (e) => {
         if (e.target.classList.contains('add-project-btn')) {
-            saveHistory();
+            // saveHistory(); // 削除
             const currentCard = e.target.closest('.project-card');
             addNewProject(currentCard);
             return;
@@ -774,7 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.classList.contains('toggle-btn')) {
             e.preventDefault();
             e.stopPropagation();
-            saveHistory();
+            // saveHistory(); // 削除
             const li = e.target.closest('li');
             li.classList.toggle('collapsed');
 
@@ -827,11 +801,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    board.addEventListener('keydown', (e) => {
+    // キーボードショートカット (Undo/Redoなど)
+    // windowレベルでキャプチャして、拡張機能より先にイベントを拾う
+    window.addEventListener('keydown', (e) => {
+        // 日本語入力中は無視
         if (e.isComposing) return;
 
+        // Undo (Cmd+Z) / Redo (Cmd+Shift+Z, Cmd+Y)
         if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+            // テキスト入力エリアでの標準Undoを阻害しないための配慮
+            // ただし、今回は「全く効かない」状態を直すため、一旦強制的に自前Undoを動かす方針にする
+            // もしテキスト入力の標準Undoを使いたい場合は、ターゲットがinput/textareaの場合はe.preventDefaultしない手もあるが、
+            // 状態管理（historyStack）と標準Undoの整合性を取るのが難しいため、自前Undoに統一するのが一般的。
+            
             e.preventDefault();
+            e.stopPropagation(); // 拡張機能などにイベントを渡さない
+            
             if (e.shiftKey) {
                 redo();
             } else {
@@ -841,21 +826,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
             e.preventDefault();
+            e.stopPropagation();
             redo();
             return;
         }
 
+        // 以下はボード内での操作のみ対象
+        const list = e.target.closest('.taskList');
+        
         // 完了状態トグル (Cmd+Shift+X)
         if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'x') {
-            e.preventDefault();
-            const list = e.target.closest('.taskList');
             if (list) {
+                e.preventDefault();
+                // stopPropagationはしない（他のショートカットと競合しにくいため）
                 toggleTaskCompletion(list);
             }
             return;
         }
 
-        const list = e.target.closest('.taskList');
         if (!list) return;
 
         if (e.key === 'Tab') {
@@ -915,7 +903,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (e.key === 'Enter') {
             saveHistory();
         }
-    });
+    }, true); // useCapture: true でイベントを優先的に取得
 
     let hoverTimer = null;
     let progressElement = null;
@@ -927,7 +915,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.appendChild(progressElement);
 
             hoverTimer = setTimeout(() => {
-                saveHistory();
+                // saveHistory(); // 削除
                 const li = e.target.closest('li');
                 li.classList.toggle('collapsed');
 
@@ -986,7 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetLis = getSelectedListItems(rootList);
         if (targetLis.length === 0) return;
 
-        saveHistory();
+        // saveHistory(); // 削除
 
         const completedCard = document.querySelector('.project-card.completed-projects-area');
         const completedList = completedCard ? completedCard.querySelector('.taskList') : null;
@@ -1163,14 +1151,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!childUl) {
                     childUl = document.createElement('ul');
                     prevLi.appendChild(childUl);
-                    childUl.appendChild(li);
-                } else {
-                    if (childUl.firstChild) {
-                        childUl.insertBefore(li, childUl.firstChild);
-                    } else {
-                        childUl.appendChild(li);
-                    }
                 }
+                // 常に末尾に追加（以前は先頭に追加していたため順序が逆転していた）
+                childUl.appendChild(li);
             }
         });
         restoreSelectionState(selectionSnapshot);
@@ -1359,6 +1342,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 li.classList.remove('is-today');
             }
+
 
             if (hasChildList) {
                 li.classList.add('has-children');
