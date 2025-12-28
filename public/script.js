@@ -819,6 +819,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // ペースト前に履歴を保存（⌘Zで取り消し可能にする）
+    board.addEventListener('paste', (e) => {
+        const list = e.target.closest('.taskList');
+        if (list || e.target.classList.contains('project-title')) {
+            saveHistory();
+        }
+    });
+
     board.addEventListener('keydown', (e) => {
         if (e.isComposing) return;
 
