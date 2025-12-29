@@ -636,7 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             opt.addEventListener('click', (e) => {
                 e.stopPropagation();
-                saveHistory();
+                // saveHistory();
 
                 // 色適用
                 card.dataset.color = color;
@@ -769,7 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target.classList.contains('project-title')) {
             if (inputDebounceTimer) clearTimeout(inputDebounceTimer);
             inputDebounceTimer = setTimeout(() => {
-                saveHistory();
+                // saveHistory();
                 saveProjects();
             }, 1000);
             return;
@@ -784,7 +784,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (inputDebounceTimer) clearTimeout(inputDebounceTimer);
             inputDebounceTimer = setTimeout(() => {
-                saveHistory();
+                // saveHistory();
             }, 1000);
 
             normalizeList(list);
@@ -797,7 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
     board.addEventListener('paste', (e) => {
         const list = e.target.closest('.taskList');
         if (list || e.target.classList.contains('project-title')) {
-            saveHistory();
+            // saveHistory();
         }
     });
 
@@ -813,10 +813,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // ただし、今回は「全く効かない」状態を直すため、一旦強制的に自前Undoを動かす方針にする
             // もしテキスト入力の標準Undoを使いたい場合は、ターゲットがinput/textareaの場合はe.preventDefaultしない手もあるが、
             // 状態管理（historyStack）と標準Undoの整合性を取るのが難しいため、自前Undoに統一するのが一般的。
-            
+
             e.preventDefault();
             e.stopPropagation(); // 拡張機能などにイベントを渡さない
-            
+
             if (e.shiftKey) {
                 redo();
             } else {
@@ -833,7 +833,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 以下はボード内での操作のみ対象
         const list = e.target.closest('.taskList');
-        
+
         // 完了状態トグル (Cmd+Shift+X)
         if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'x') {
             if (list) {
@@ -846,9 +846,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!list) return;
 
+        // 行の入れ替え (Alt + ↑/↓ または Cmd + Ctrl + ↑/↓)
+        if (((e.altKey && !e.metaKey && !e.ctrlKey) || (e.metaKey && e.ctrlKey)) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+            const targetLis = getSelectedListItems(list);
+            if (targetLis.length > 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                // saveHistory(); // 一時的に無効化
+
+                const selectionSnapshot = saveSelectionState(targetLis);
+                const isDown = e.key === 'ArrowDown';
+
+                if (!isDown) { // Up
+                    const firstLi = targetLis[0];
+                    const prevLi = firstLi.previousElementSibling;
+                    if (prevLi) {
+                        targetLis.forEach(li => {
+                            if (li.parentNode === prevLi.parentNode) {
+                                li.parentNode.insertBefore(li, prevLi);
+                            }
+                        });
+                    }
+                } else { // Down
+                    const lastLi = targetLis[targetLis.length - 1];
+                    const nextLi = lastLi.nextElementSibling;
+                    if (nextLi) {
+                        // 逆順にして nextLi の後ろ（nextLi.nextSibling の前）に挿入していく
+                        [...targetLis].reverse().forEach(li => {
+                            if (li.parentNode === nextLi.parentNode) {
+                                li.parentNode.insertBefore(li, nextLi.nextSibling);
+                            }
+                        });
+                    }
+                }
+
+                restoreSelectionState(selectionSnapshot);
+
+                setTimeout(() => {
+                    // 構造が変わった可能性があるので正規化とスタイル更新
+                    normalizeList(list);
+                    updateToggleButtons(list);
+                    saveProjects();
+                }, 0);
+            }
+            return;
+        }
+
         if (e.key === 'Tab') {
             e.preventDefault();
-            saveHistory();
+            // saveHistory();
             if (e.shiftKey) {
                 customOutdent(list);
             } else {
@@ -873,7 +919,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 通常のアウトデント処理
                         if (parentUl && parentUl !== list) {
                             e.preventDefault();
-                            saveHistory();
+                            // saveHistory();
                             customOutdent(list);
                             setTimeout(() => {
                                 normalizeList(list);
@@ -890,7 +936,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             e.preventDefault();
                             if (confirm('プロジェクトを削除しますか？')) {
-                                saveHistory();
+                                // saveHistory();
                                 const card = list.closest('.project-card');
                                 card.remove();
                                 saveProjects();
@@ -901,7 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         else if (e.key === 'Enter') {
-            saveHistory();
+            // saveHistory();
         }
     }, true); // useCapture: true でイベントを優先的に取得
 
