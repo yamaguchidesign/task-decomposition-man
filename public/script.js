@@ -35,20 +35,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const COMPLETED_PROJECT_ID = 11111;
 
-    // 12色のカラーパレット
+    // 15色のカラーパレット
     const PROJECT_COLORS = [
-        '#3498db', // Blue (Default)
-        '#e74c3c', // Red
-        '#2ecc71', // Green
-        '#f39c12', // Orange
-        '#9b59b6', // Purple
-        '#1abc9c', // Teal
-        '#e91e63', // Pink
-        '#3f51b5', // Indigo
-        '#795548', // Brown
-        '#34495e', // Dark Gray
-        '#2c3e50', // Navy
-        '#7cb342'  // Olive
+        '#e74c3c', // 赤
+        '#f39c12', // オレンジ
+        '#f1c40f', // 黄色
+        '#cddc39', // ライムグリーン
+        '#2ecc71', // 緑
+        '#00bcd4', // 水色
+        '#2980b9', // 青
+        '#2c3e50', // 紺色
+        '#9b59b6', // 紫
+        '#880e4f', // ワインレッド
+        '#ff007f', // ショッキングピンク
+        '#c0a322', // 黄土色
+        '#795548', // 茶色
+        '#7f8c8d', // グレー
+        '#000000'  // ブラック
     ];
 
     const historyStack = [];
