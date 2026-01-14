@@ -254,7 +254,7 @@ body {
     align-content: start;
     justify-content: center;
     padding: 2rem;
-    gap: 2rem;
+    gap: 1rem;
     height: auto;
     width: auto;
     margin: 0 auto;
@@ -285,21 +285,26 @@ body {
 
 /* 完了タスク用の特別スタイル */
 .project-card.completed-projects-area {
-    grid-column: 1 / -1; /* 全カラムにまたがる */
+    grid-column: 1 / -1;
+    /* 全カラムにまたがる */
     width: 100%;
     min-width: 100%;
     background-color: #f0f0f0;
     border: 2px dashed #ccc;
     box-shadow: none;
 }
+
 .project-card.completed-projects-area .add-project-btn {
     display: none;
 }
+
 .project-card.completed-projects-area .color-picker-btn {
     display: none;
 }
+
 .project-card.completed-projects-area .project-title {
-    pointer-events: none; /* タイトル編集不可 */
+    pointer-events: none;
+    /* タイトル編集不可 */
     color: #7f8c8d;
 }
 
@@ -604,8 +609,9 @@ li.collapsed>.toggle-btn {
         max-width: 100%;
         margin: 0;
     }
-    
+
     .project-card.completed-projects-area {
-        grid-column: 1; /* モバイルでは1カラムに戻す */
+        grid-column: 1;
+        /* モバイルでは1カラムに戻す */
     }
 }
